@@ -8,12 +8,12 @@ describe("xAUDIO: Mint", async () => {
     let xAudio;
     let audio;
     let deployer, user1, user2;
+    const audioAmount = utils.parseEther("10");
 
     before(async () => {
         ({xAudio: xAudio, accounts: [deployer, user1, user2], audio: audio} = await xAudioFixture());
     });
     context('# can mint token with AUDIO', async () => {
-        const audioAmount = utils.parseEther("10");
         it("need to approve token first", async () => {
             await audio.transfer(user1.address, audioAmount);
             await expect(

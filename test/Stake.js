@@ -44,5 +44,18 @@ describe("xAUDIO: Stake", async () => {
             expect(bufferBal).to.be.equal(utils.parseEther("0.6"))
         });
     });
+    context('# can claim rewards', async () => {
+        it("can't claim rewards if not owner", async () => {
+            await expect(xAudio.connect(user1).claimRewards()).to.be.revertedWith('Non-admin caller')
+        });
+        it("can claim rewards", async () => {
+            await xAudio.claimRewards();
 
+            const stakedBal = await xAudio.getStakedBalance();
+            const bufferBal = await xAudio.getBufferBalance();
+
+            expect(stakedBal).to.be.equal(utils.parseEther("12.54"))
+            expect(bufferBal).to.be.equal(utils.parseEther("0.6"))
+        });
+    });
 });

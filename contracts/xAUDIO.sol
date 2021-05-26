@@ -51,10 +51,17 @@ contract xAUDIO is
     }
 
     /*
-     * @dev Stake 95% of AUDIO hold by the contract
+     * @dev Increase stake to 95% of AUDIO hold by the contract
      */
     function stake() external onlyOwnerOrManager {
         _rebalance();
+    }
+
+    /*
+     * @dev claim rewards
+     */
+    function claimRewards() external onlyOwnerOrManager {
+        delegateManager.claimRewards(serviceProvider);
     }
 
     function getStakedBalance() public view returns (uint256) {

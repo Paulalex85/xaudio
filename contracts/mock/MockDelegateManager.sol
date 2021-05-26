@@ -18,4 +18,7 @@ contract MockDelegateManager is ERC20("StakedAudio", "StkAudio"){
     function getTotalDelegatorStake(address _delegator) external returns (uint256) {
         return balanceOf(_delegator);
     }
+    function claimRewards(address _serviceProvider) external {
+        super._mint(msg.sender, balanceOf(msg.sender).div(10));
+    }
 }

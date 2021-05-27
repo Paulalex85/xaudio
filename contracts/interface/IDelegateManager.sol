@@ -8,4 +8,6 @@ interface IDelegateManager {
     function claimRewards(address _serviceProvider) external;
 
     function requestUndelegateStake(address _target, uint256 _amount) external returns (uint256);
+
+    function undelegateStake() external returns (uint256);
 }

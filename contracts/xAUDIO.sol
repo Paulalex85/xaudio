@@ -71,6 +71,13 @@ PausableUpgradeSafe
         delegateManager.requestUndelegateStake(serviceProvider, requestedAmount);
     }
 
+    /*
+    * @notice unstake the amount previously requested
+    */
+    function unstake() external onlyOwnerOrManager {
+        delegateManager.undelegateStake();
+    }
+
     function getStakedBalance() public view returns (uint256) {
         return delegateManager.getTotalDelegatorStake(address(this));
     }

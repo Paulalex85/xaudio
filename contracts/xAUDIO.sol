@@ -9,16 +9,16 @@ import "@openzeppelin/contracts-ethereum-package/contracts/utils/Pausable.sol";
 import "./interface/IDelegateManager.sol";
 
 contract xAUDIO is
-Initializable,
-ERC20UpgradeSafe,
-OwnableUpgradeSafe,
-PausableUpgradeSafe
+    Initializable,
+    ERC20UpgradeSafe,
+    OwnableUpgradeSafe,
+    PausableUpgradeSafe
 {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     uint256 private constant BUFFER_TARGET = 20; //do 5% target buffer with div 20
-    uint256 private constant MAX_UINT = 2 ** 256 - 1;
+    uint256 private constant MAX_UINT = 2**256 - 1;
 
     IERC20 private audio;
     IDelegateManager private delegateManager;
@@ -65,15 +65,18 @@ PausableUpgradeSafe
     }
 
     /*
-     * @notice request unstake to service provider, take 7 days and need to wait the end of the cooldown before request another one 
+     * @notice request unstake to service provider, take 7 days and need to wait the end of the cooldown before request another one
      */
     function cooldown(uint256 requestedAmount) external onlyOwnerOrManager {
-        delegateManager.requestUndelegateStake(serviceProvider, requestedAmount);
+        delegateManager.requestUndelegateStake(
+            serviceProvider,
+            requestedAmount
+        );
     }
 
     /*
-    * @notice unstake the amount previously requested
-    */
+     * @notice unstake the amount previously requested
+     */
     function unstake() external onlyOwnerOrManager {
         delegateManager.undelegateStake();
     }
@@ -90,7 +93,7 @@ PausableUpgradeSafe
         uint256 stakedBalance = getStakedBalance();
         uint256 bufferBalance = getBufferBalance();
         uint256 targetBuffer =
-        (stakedBalance.add(bufferBalance)).div(BUFFER_TARGET);
+            (stakedBalance.add(bufferBalance)).div(BUFFER_TARGET);
 
         if (bufferBalance > targetBuffer) {
             _stake(bufferBalance.sub(targetBuffer));
@@ -102,7 +105,6 @@ PausableUpgradeSafe
     }
 
     function approveAudio(address _toApprove) external onlyOwnerOrManager {
-        require(_toApprove == address(delegateManager));
         audio.safeApprove(_toApprove, MAX_UINT);
     }
 

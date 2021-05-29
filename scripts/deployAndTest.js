@@ -1,10 +1,14 @@
 const hre = require('hardhat');
+const { utils, BigNumber } = require("ethers");
+const { expect } = require("chai");
 
 // mainnet
 const ADDRESSES = {
-    audio: '0x111111111117dc0aa78b770fa6a738034120c302',
-    audioDelegateManager : '0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225',
-    serviceProvider: '0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0'
+    audio: '0x18aAA7115705e8be94bfFEBDE57Af9BFc265B998',
+    audioDelegateManager: '0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225',
+    serviceProvider: '0xc1f351FE81dFAcB3541e59177AC71Ed237BD15D0',
+    audioHolder: '0x0da332Ad0D7943A7DF320b9Bea5D7fAa9a665882',
+    audioStaking: '0xe6d97b2099f142513be7a2a068be040656ae4591'
 };
 
 // run on mainnet fork
@@ -13,43 +17,91 @@ async function main() {
     const [deployer, user1, user2] = accounts;
 
     const xAUDIO = await ethers.getContractFactory('xAUDIO');
-    const xAudio = await xAUDIO.deploy();
+    const xaudio = await xAUDIO.deploy();
+    await xaudio.deployed();
+    console.log('xaudio deployed at address:', xaudio.address);
 
-    const xAUDIOProxy = await ethers.getContractFactory('xAUDIOProxy');
-    const xAudioProxy = await xAUDIOProxy.deploy(xAudio.address, user2.address); // transfer ownership to multisig
-    const xAudioProxyCast = await ethers.getContractAt('xAUDIO', xAudioProxy.address);
-
-    await xAudioProxyCast.initialize(
+    let tx = await xaudio.initialize(
         'xAUDIOa',
         ADDRESSES.audio,
         ADDRESSES.audioDelegateManager,
         ADDRESSES.serviceProvider
     );
 
-    console.log('xAudioProxyCast:', xAudioProxyCast.address);
+    await tx.wait();
+    console.log('xaudio initialized');
+
+    //retrieve audio holder
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [ADDRESSES.audioHolder]
+    });
+    const audioHolder = ethers.provider.getSigner(ADDRESSES.audioHolder);
+
+    await xaudio.approveAudio(ADDRESSES.audioStaking);
+
 
     // test
+    const audioAmount = utils.parseEther('130');;
 
-    await xAudioProxyCast.mint('1', { value: ethers.utils.parseEther('0.01') });
-    await mineBlocks(5);
-    const totalSupply = await xAudioProxyCast.totalSupply();
+    //check audio amount of holder
+    const audio = await ethers.getContractAt('ERC20', ADDRESSES.audio);
+    const balanceHolder = await audio.balanceOf(ADDRESSES.audioHolder)
+    console.log('audioHolder', balanceHolder.toString())
+    expect(BigNumber.from(balanceHolder).gt(0)).to.be.true
+
+    await audio.connect(audioHolder).transfer(user1.address, audioAmount);
+    let balanceUser1 = await audio.balanceOf(user1.address)
+    console.log('User1 balance', balanceUser1.toString())
+    expect(BigNumber.from(balanceUser1).eq(audioAmount)).to.be.true
+
+    //Mint
+    await audio.connect(user1).approve(xaudio.address, audioAmount);
+    await xaudio.connect(user1).mintWithToken(audioAmount);
+
+    const balanceAfterMint = await audio.balanceOf(user1.address)
+    console.log('audio after mint', balanceAfterMint.toString())
+    expect(BigNumber.from(balanceAfterMint).eq(0)).to.be.true
+
+    const xaudioBalanceAfterMint = await xaudio.balanceOf(user1.address)
+    console.log('xaudio after mint', xaudioBalanceAfterMint.toString())
+    expect(xaudioBalanceAfterMint).to.be.equal(audioAmount)
+
+    console.log('xaudio minted')
+    const totalSupply = await xaudio.totalSupply();
     console.log('totalSupply', totalSupply.toString());
 
-    const audio = await ethers.getContractAt('ERC20', ADDRESSES.audio);
+    //Stake 
+    await mineBlocks(5);
+    await xaudio.stake();
+    await mineBlocks(5);
 
-    const xAudioHoldings = await xAudioProxyCast.balanceOf(deployer.address);
-    console.log('xAudioHoldings', xAudioHoldings.toString());
+    let stakedBal = await xaudio.getStakedBalance();
+    let bufferBal = await xaudio.getBufferBalance();
+    console.log('stakedBal', stakedBal.toString());
+    console.log('bufferBal', bufferBal.toString());
 
-    const totalSupply2 = await xAudioProxyCast.totalSupply();
-    console.log('totalSupply2', totalSupply2.toString());
-    const supplyToBurn = await totalSupply2.div(50);
+    expect(stakedBal).to.be.equal(utils.parseEther("123.5"))
+    expect(bufferBal).to.be.equal(utils.parseEther("6.5"))
 
-    // INCH redemption
-    const inchBal = await audio.balanceOf(deployer.address)
-    console.log('inchBal', inchBal.toString())
-    await xAudioProxyCast.burn(supplyToBurn, false, '0')
-    const inchBalAfter = await audio.balanceOf(deployer.address)
-    console.log('inchBalAfter', inchBalAfter.toString())
+    //Cooldown
+    console.log('cooldown');
+    await mineBlocks(5);
+    await xaudio.cooldown(utils.parseEther("123.5"));
+
+    //unstake
+    //need to wait 7 days 
+    console.log('unstake');
+    await mineBlocks(50000);
+    await xaudio.unstake();
+
+    stakedBal = await xaudio.getStakedBalance();
+    bufferBal = await xaudio.getBufferBalance();
+    console.log('stakedBal', stakedBal.toString());
+    console.log('bufferBal', bufferBal.toString());
+
+    expect(stakedBal).to.be.equal(utils.parseEther("0"))
+    expect(bufferBal).to.be.equal(utils.parseEther("130"))
 }
 
 /**
@@ -57,7 +109,7 @@ async function main() {
  * @param {Number} blockCount how many blocks to mine
  */
 async function mineBlocks(blockCount) {
-    for(let i = 0 ; i < blockCount ; ++i) {
+    for (let i = 0; i < blockCount; ++i) {
         await hre.ethers.provider.send("evm_mine");
     }
 }
